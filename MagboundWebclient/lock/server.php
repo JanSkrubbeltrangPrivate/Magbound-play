@@ -8,7 +8,10 @@ if (isset($_GET['new'])) {
 
 	$db->exec("INSERT INTO maglocks(locked) VALUES(0)");
 	echo $db->lastInsertRowId();
+}
 
+if (isset($_GET['isAlive'])) {
+	echo "OK";
 }
 
 if (isset($_GET['id'])) {

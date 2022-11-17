@@ -18,26 +18,36 @@ namespace MagSafeLockServer
         public void EndlessTimer(TimeSpan Delay, Action preAction, Action action, Action postAction) {
             Task.Run(async () => 
             {
-                preAction?.Invoke();
-                PeriodicTimer timer = new(Delay);
-                while(await timer.WaitForNextTickAsync(_token)) {
-                    action?.Invoke();
+                try {
+                    preAction?.Invoke();
+                    PeriodicTimer timer = new(Delay);
+                    while(await timer.WaitForNextTickAsync(_token)) {
+                        action?.Invoke();
+                    }
                 }
-                postAction?.Invoke();
+                catch (TaskCanceledException ) {
+                    postAction?.Invoke();
+                }
+
             });
         }
 
         public void TimedTimer(TimeSpan Delay, TimeSpan Runtime, Action preAction, Action action, Action postAction) {
             Task.Run(async () => 
             {
-                preAction?.Invoke();
-                PeriodicTimer timer = new(Delay);
-                var startTime = DateTime.Now;
+                try {
+                    preAction?.Invoke();
+                    PeriodicTimer timer = new(Delay);
+                    var startTime = DateTime.Now;
 
-                while(await timer.WaitForNextTickAsync(_token) && DateTime.Now < startTime + Runtime) {
-                    action?.Invoke();
+                    while(await timer.WaitForNextTickAsync(_token) && DateTime.Now < startTime + Runtime) {
+                        action?.Invoke();
+                    }
+                    postAction?.Invoke();
                 }
-                postAction?.Invoke();
+                catch (TaskCanceledException ) {
+                    postAction?.Invoke();
+                }
             });
         }
 
