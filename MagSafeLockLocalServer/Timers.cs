@@ -15,12 +15,12 @@ namespace MagSafeLockServer
             _token = _source.Token;
         }
 
-        public void EndlessTimer(TimeSpan Delay, Action preAction, Action action, Action postAction) {
+        public PeriodicTimer EndlessTimer(TimeSpan Delay, Action preAction, Action action, Action postAction) {
+            PeriodicTimer timer = new(Delay);
             Task.Run(async () => 
             {
                 try {
                     preAction?.Invoke();
-                    PeriodicTimer timer = new(Delay);
                     while(await timer.WaitForNextTickAsync(_token)) {
                         action?.Invoke();
                     }
@@ -28,16 +28,17 @@ namespace MagSafeLockServer
                 catch (TaskCanceledException ) {
                     postAction?.Invoke();
                 }
-
             });
+            return timer;
         }
 
-        public void TimedTimer(TimeSpan Delay, TimeSpan Runtime, Action preAction, Action action, Action postAction) {
+        public PeriodicTimer TimedTimer(TimeSpan Delay, TimeSpan Runtime, Action preAction, Action action, Action postAction) {
+            PeriodicTimer timer = new(Delay);
             Task.Run(async () => 
             {
                 try {
                     preAction?.Invoke();
-                    PeriodicTimer timer = new(Delay);
+                    
                     var startTime = DateTime.Now;
 
                     while(await timer.WaitForNextTickAsync(_token) && DateTime.Now < startTime + Runtime) {
@@ -49,6 +50,7 @@ namespace MagSafeLockServer
                     postAction?.Invoke();
                 }
             });
+            return timer;
         }
 
         public void Cancel() 
