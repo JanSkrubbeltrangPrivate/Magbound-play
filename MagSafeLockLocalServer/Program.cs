@@ -7,7 +7,7 @@ string localhost = "http://timer"; //point to smart timer either dns or IP
 string webhost = ""; // Set to where you have your php hosted
 
 
-PeriodicTimer CurrentTimer = null;
+PeriodicTimer? RunningTimer = null;
 
 HttpClient httpClient = new();
 
@@ -96,8 +96,7 @@ void Parse(string command)
             Task.Run(async () =>
             {
                 string result = await HttpGetCall(httpClient, $"{localhost}/setLock?t_state=0");
-                if (!result.StartsWith("Error"))
-                WriteOutput("Unlocked");
+                if (!result.StartsWith("Error")) WriteOutput("Unlocked");
             });
             break;
         case "test":
@@ -122,48 +121,46 @@ void Parse(string command)
             if (parts.Length > 1 && parts[1].Equals("timed"))
             {
                 if (parts.Length == 2)
-                    RemoteTimed("", 5);
+                    RunningTimer = RemoteTimed("", 5);
                 if (parts.Length == 3)
-                    RemoteTimed(parts[2], 5);
+                    RunningTimer = RemoteTimed(parts[2], 5);
                 if (parts.Length == 4)
                 {
                     Id = parts[3];
-                    RemoteTimed(parts[2], 5);
+                    RunningTimer = RemoteTimed(parts[2], 5);
                 }
             }
             if (parts.Length == 2 && parts[1].Equals("endless"))
-                RemoteEndless();
+                RunningTimer = RemoteEndless();
 
             break;
         case "timer":
             if (parts.Length == 1)
-                Timed("", 5);
+                RunningTimer = Timed("", 5);
             if (parts.Length == 2)
-                Timed(parts[1], 5);
+                RunningTimer = Timed(parts[1], 5);
             break;
         case "webhost":
             if (parts.Length == 1)
             {
-                WriteOutput($"Web host set to: {webhost}", false);
+                WriteOutput($"Web host is: {webhost}", false);
             }
             if (parts.Length == 2)
             {
                 webhost = parts[1];
+                WriteOutput($"Web host set to: {webhost}", false);
             }
             break;
         case "localhost":
             if (parts.Length == 1)
             {
-                WriteOutput($"Local host set to: {localhost}", false);
+                WriteOutput($"Local host is: {localhost}", false);
             }
             if (parts.Length == 2)
             {
                 localhost = parts[1];
+                WriteOutput($"Local host set to: {localhost}", false);
             }
-            break;
-        case "cancel":
-            if (CurrentTimer != null)
-                CurrentTimer.Dispose();
             break;
         default:
             WriteOutput("Unknown Command!", false);
@@ -187,17 +184,16 @@ void WritePrompt()
     Console.Write(prompt);
 }
 
-void RemoteTimed(string duration, int defaultLength)
+PeriodicTimer? RemoteTimed(string duration, int defaultLength)
 {
     string CurrentState = HttpGetCall(httpClient, $"{webhost}/server.php?id={Id}").Result;
     if (CurrentState.StartsWith("Error")) {
         WriteOutput(CurrentState, false);
-        return;
+        return null;
     }
-
     int durationInt = int.TryParse(duration, out durationInt) ? durationInt : defaultLength;
     Timers timer = new Timers();
-    CurrentTimer = timer.TimedTimer(TimeSpan.FromMilliseconds(pollTime), TimeSpan.FromMinutes(durationInt), async () =>
+    PeriodicTimer CurrentTimer = timer.TimedTimer(TimeSpan.FromMilliseconds(pollTime), TimeSpan.FromMinutes(durationInt), async () =>
     {
         if (CurrentState == "1")
         {
@@ -234,14 +230,15 @@ void RemoteTimed(string duration, int defaultLength)
         await HttpGetCall(httpClient, $"{localhost}/setLock?t_state=0");
         WriteOutput("Ended, unlocked");
     });
+    return CurrentTimer;
 }
 
-void RemoteEndless()
+PeriodicTimer? RemoteEndless()
 {
     Timers timer = new Timers();
 
     string CurrentState = "";
-    CurrentTimer = timer.EndlessTimer(TimeSpan.FromMilliseconds(pollTime), async () =>
+    PeriodicTimer CurrentTimer = timer.EndlessTimer(TimeSpan.FromMilliseconds(pollTime), async () =>
     {
         CurrentState = await HttpGetCall(httpClient, $"{webhost}/server.php?id={Id}");
         if (CurrentState == "1")
@@ -275,15 +272,16 @@ void RemoteEndless()
         string result = await HttpGetCall(httpClient, $"{localhost}/setLock?t_state=0");
         WriteOutput("Ended, unlocked");
     });
+    return CurrentTimer;
 }
 
 
-void Timed(string duration, int defaultLength)
+PeriodicTimer? Timed(string duration, int defaultLength)
 {
     Timers timer = new Timers();
     int durationInt = int.TryParse(duration, out durationInt) ? durationInt : defaultLength;
 
-    CurrentTimer = timer.TimedTimer(TimeSpan.FromMilliseconds(pollTime), TimeSpan.FromMinutes(durationInt), async () =>
+    PeriodicTimer CurrentTimer = timer.TimedTimer(TimeSpan.FromMilliseconds(pollTime), TimeSpan.FromMinutes(durationInt), async () =>
     {
         string result = await HttpGetCall(httpClient, $"{localhost}/setLock?t_state=1&i_state=10000000");
         WriteOutput("Locked");
@@ -294,4 +292,5 @@ void Timed(string duration, int defaultLength)
         string result = await HttpGetCall(httpClient, $"{localhost}/setLock?t_state=0");
         WriteOutput("Ended, unlocked");
     });
+    return CurrentTimer;
 }
